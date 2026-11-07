@@ -1,6 +1,7 @@
 import streamlit as st
 import tensorflow as tf
 import numpy as np
+import requests
 from PIL import Image, ImageOps
 
 # EcoVision - updated Streamlit app
@@ -281,7 +282,12 @@ def predict_waste(image, model, labels):
     prediction = np.asarray(model.predict(np.expand_dims(arr, axis=0), verbose=0)).flatten()
     idx = int(np.argmax(prediction))
     label = labels[idx] if idx < len(labels) else f"Class {idx + 1}"
-    return label, float(prediction[idx])
+    top_indices = np.argsort(prediction)[::-1][:3]
+    top_predictions = [
+        (labels[int(i)] if int(i) < len(labels) else f"Class {int(i) + 1}", float(prediction[int(i)]))
+        for i in top_indices
+    ]
+    return label, float(prediction[idx]), top_predictions
 
 def category_guidance(category, lang):
     c = category.lower()
@@ -321,13 +327,119 @@ def faq_answer(question, lang):
             return FAQ[key].get(lang, FAQ[key]["en"])
     return get_text("unknown", lang)
 
+
+def detect_faq_topic(question):
+    q = question.lower()
+    topic_terms = {
+        "plastic": ["plastic", "ప్లాస్టిక్", "प्लास्टिक", "பிளாஸ்டிக்", "പ്ലാസ്റ്റിക്", "ಪ್ಲಾಸ್ಟಿಕ್"],
+        "paper": ["paper", "cardboard", "కాగితం", "కార్డ్", "कागज़", "காகித", "പേപ്പർ", "ಕಾಗದ"],
+        "glass": ["glass", "గాజు", "काँच", "கண்ணாடி", "ഗ്ലാസ്", "ಗಾಜು"],
+        "metal": ["metal", "can", "లోహ", "धातु", "உலோகம்", "ലോഹ", "ಲೋಹ"],
+        "organic": ["organic", "food waste", "సేంద్రీయ", "जैविक", "கரிம", "ജൈവ", "ಸಾವಯವ"],
+        "compost": ["compost", "కంపోస్ట", "कम्पोस्ट", "உரம்", "കമ്പോസ്റ്റ്", "ಕಾಂಪೋಸ್ಟ್"],
+        "hazard": ["hazard", "battery", "chemical", "ప్రమాదకర", "బ్యాటరీ", "खतरनाक", "அபாய", "അപകട", "ಅಪಾಯಕಾರಿ"],
+        "ewaste": ["e-waste", "ewaste", "electronic", "ఈ-వ్యర్థ", "ई-कचरा", "மின்னணுக்", "ഇ-മാലിന്യം", "ಇ-ತ್ಯಾಜ್ಯ"],
+        "biodegradable": ["biodegradable", "జీవ విచ్ఛిన్న", "जैव अपघटनीय", "மக்கும்", "ജൈവ വിഘട", "ಜೈವಿಕವಾಗಿ"],
+    }
+    for topic, words in topic_terms.items():
+        if any(word in q for word in words):
+            return topic
+    return None
+
+
+def faq_topic_answer(topic, lang):
+    return FAQ.get(topic, {}).get(lang, FAQ.get(topic, {}).get("en", get_text("unknown", lang)))
+
+
+def get_optional_ai_settings():
+    """Read an optional OpenAI-compatible endpoint from Streamlit secrets.
+    No API key is required for the default free FAQ mode.
+    """
+    try:
+        return {
+            "api_url": st.secrets.get("ECO_CHAT_API_URL", ""),
+            "api_key": st.secrets.get("ECO_CHAT_API_KEY", ""),
+            "model": st.secrets.get("ECO_CHAT_MODEL", ""),
+        }
+    except Exception:
+        return {"api_url": "", "api_key": "", "model": ""}
+
+
+def ai_chat_response(chat_history, language_name):
+    """Optional AI-ready adapter. Returns None when no provider is configured."""
+    settings = get_optional_ai_settings()
+    if not all(settings.values()):
+        return None
+    try:
+        headers = {
+            "Authorization": f"Bearer {settings['api_key']}",
+            "Content-Type": "application/json",
+        }
+        system_prompt = (
+            "You are EcoVision, a careful waste segregation and reuse assistant. "
+            "Answer in " + language_name + ". Give practical, safe, concise advice. "
+            "Do not suggest DIY reuse for batteries, chemicals, medical waste, or hazardous items. "
+            "Explain that recyclability depends on cleanliness and local facilities. "
+            "Do not claim certainty about image recognition or environmental rules."
+        )
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(chat_history[-8:])
+        response = requests.post(
+            settings["api_url"],
+            headers=headers,
+            json={"model": settings["model"], "messages": messages, "temperature": 0.4},
+            timeout=25,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return None
+
+
+def hybrid_chat_answer(question, lang, language_name):
+    history = st.session_state.get("eco_chat", [])
+    ai_answer = ai_chat_response(history + [{"role": "user", "content": question}], language_name)
+    if ai_answer:
+        return ai_answer, "AI"
+
+    topic = detect_faq_topic(question)
+    if topic:
+        st.session_state["eco_last_topic"] = topic
+        return faq_topic_answer(topic, lang), "FAQ"
+
+    follow_up_words = [
+        "more", "details", "steps", "examples", "what about it", "how about it",
+        "దాని గురించి", "ఇంకా", "వివరాలు", "ఎలా చేయాలి", "మరిన్ని",
+        "और बताओ", "विस्तार", "மேலும்", "விவரம்", "കൂടുതൽ", "ವಿವರ",
+    ]
+    if any(word in question.lower() for word in follow_up_words):
+        previous_topic = st.session_state.get("eco_last_topic")
+        if previous_topic:
+            return faq_topic_answer(previous_topic, lang), "FAQ"
+
+    return faq_answer(question, lang), "FAQ"
+
+
 # Sidebar language selection
 st.sidebar.title("♻️ EcoVision")
 language_name = st.sidebar.selectbox(get_text("language", "en"), list(LANGUAGES.keys()))
 lang = LANGUAGES[language_name]
 t = lambda key: get_text(key, lang)
 
-st.title("♻️ EcoVision")
+st.markdown("""
+<style>
+    .block-container {max-width: 1050px; padding-top: 1.8rem; padding-bottom: 2.5rem;}
+    .eco-hero {padding: 1.25rem 1.4rem; border-radius: 18px; background: linear-gradient(120deg, #e8f5e9, #f1f8e9); border: 1px solid #c8e6c9; margin-bottom: 1rem;}
+    .eco-hero h1 {margin: 0; color: #1b5e20;}
+    .eco-muted {color: #45634a; margin-top: .35rem;}
+    div[data-testid="stMetric"] {background: #f7fbf7; border: 1px solid #dcebdd; padding: 12px; border-radius: 12px;}
+</style>
+<div class="eco-hero">
+  <h1>♻️ EcoVision</h1>
+  <div class="eco-muted">Smart waste classification • Reuse guidance • Hybrid FAQ assistant</div>
+</div>
+""", unsafe_allow_html=True)
 st.caption(t("tagline"))
 st.write(t("intro"))
 
@@ -349,13 +461,18 @@ if uploaded:
         st.image(image, caption=t("uploaded"), use_container_width=True)
         if st.button(t("identify"), type="primary", use_container_width=True):
             with st.spinner(t("analyzing")):
-                category, confidence = predict_waste(image, model, labels)
+                category, confidence, top_predictions = predict_waste(image, model, labels)
 
             st.subheader("🌱 " + t("result"))
             translated_category = CATEGORY_NAMES.get(category, {}).get(lang, category)
             st.write(f"**{t('category')}:** {translated_category}")
             st.write(f"**{t('confidence')}:** {confidence * 100:.1f}%")
             st.progress(max(0.0, min(1.0, confidence)))
+            if confidence < 0.55:
+                st.warning("Low model confidence. Treat this result as uncertain and try a clear, close-up photo.")
+            with st.expander("View top model predictions"):
+                for predicted_label, predicted_score in top_predictions:
+                    st.write(f"{predicted_label}: {predicted_score * 100:.1f}%")
 
             bio_text, recycle_text = category_guidance(category, lang)
             col1, col2 = st.columns(2)
@@ -386,17 +503,19 @@ if "eco_chat" not in st.session_state:
 for message in st.session_state.eco_chat:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if message["role"] == "assistant":
+            st.caption("Response mode: " + message.get("mode", "FAQ"))
 
 user_question = st.chat_input(t("chat_placeholder"))
 if user_question:
     st.session_state.eco_chat.append({"role": "user", "content": user_question})
-    answer = faq_answer(user_question, lang)
-    st.session_state.eco_chat.append({"role": "assistant", "content": answer})
+    answer, answer_mode = hybrid_chat_answer(user_question, lang, language_name)
+    st.session_state.eco_chat.append({"role": "assistant", "content": answer, "mode": answer_mode})
     st.rerun()
 
 if st.button("Clear chat"):
     st.session_state.eco_chat = []
     st.rerun()
 
-st.caption("EcoVision | Free rule-based FAQ assistant • No paid chatbot API")
-
+st.info("Hybrid chatbot status: free FAQ mode is active. To enable a compatible AI provider later, add ECO_CHAT_API_URL, ECO_CHAT_API_KEY and ECO_CHAT_MODEL to Streamlit Secrets. Without these settings, the app stays on the free FAQ assistant.")
+st.caption("EcoVision | Free FAQ first • Optional AI integration later")

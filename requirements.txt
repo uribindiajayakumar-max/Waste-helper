@@ -1,4 +1,8 @@
 streamlit==1.41.1
 tensorflow==2.15.1
-numpy<2
-Pillow
+mediapipe==0.10.21
+numpy==1.26.4
+Pillow>=10.0,<12
+requests==2.32.3
+protobuf==4.25.8
+opencv-contrib-python==4.10.0.84

@@ -1,0 +1,52 @@
+ECOVISION AI — UPDATED PROJECT
+================================
+
+ఈ ZIP లో ఉన్న ఫైళ్లు:
+- app.py                కొత్త Streamlit application code
+- keras_model.h5        మీ పాత 8-category Keras classification model (అదే ఉంచాం)
+- labels.txt            మీ పాత 8 category labels (అదే ఉంచాం)
+- requirements.txt      అవసరమైన Python packages
+- runtime.txt           Streamlit Cloud కోసం Python 3.11
+
+కొత్త Welcome Screen:
+1. యాప్ మొదట తెరిచినప్పుడు EcoVision AI పర్యావరణ Welcome Screen కనిపిస్తుంది.
+2. Reduce, Separate, Dispose safely వంటి పర్యావరణ చర్యల గురించి చిన్న కార్డులు ఉంటాయి.
+3. యూజర్ eco-tip ఎంపిక చేస్తే దాని వివరణ కనిపిస్తుంది.
+4. “Start with EcoVision AI” నొక్కిన తర్వాతే waste AI models load అవుతాయి.
+5. లాగిన్ లేదా account అవసరం లేదు. యాప్‌లోని Welcome screen బటన్‌తో తిరిగి మొదటి పేజీకి వెళ్లవచ్చు.
+6. Welcome Screen ఆంగ్లం మరియు తెలుగులో ఉంటుంది. మిగతా భాషలకు ప్రస్తుతం ఆంగ్ల Welcome copy fallback అవుతుంది.
+
+ఏం కొత్తగా ఉంది?
+1. ఒక ఫోటోలో కనిపించే మద్దతు ఉన్న వస్తువులను విడిగా గుర్తించడానికి MediaPipe EfficientDet-Lite0 object detector.
+2. ప్రతి detected object crop ను మీ పాత Keras model తో 8 waste categories లో ఒకటిగా classify చేస్తుంది.
+3. వ్యక్తి (person) గుర్తింపును waste item గా చూపదు.
+4. Laptop, phone, keyboard వంటి electronic items ను e-waste గా చూపే ముందు user confirmation అడుగుతుంది. పని చేస్తున్న కంప్యూటర్ ఆటోమేటిక్‌గా చెత్తగా పరిగణించబడదు.
+5. Top predictions జాబితా తీసివేసి, ఒక్కో వస్తువుకు ఒక్క category మాత్రమే చూపిస్తుంది.
+6. Model score 80% కంటే తక్కువగా ఉంటే ఆ category ను confirmed result గా చూపించదు. 90% లేదా అంతకంటే ఎక్కువ ఉంటే strong prediction match అని సూచిస్తుంది.
+7. Reuse ideas బదులుగా మూడు safe disposal methods ఇస్తుంది. ఒకటి ఎంచుకుంటే visual guide + explanation చూపిస్తుంది.
+8. పర్యావరణం, జంతువులు, మనుషుల కోసం 0–100 risk-priority index చూపిస్తుంది. ఇవి measured damage percentages కావు; నిజమైన ప్రభావం పదార్థం, పరిమాణం, స్థితి, exposure మరియు ప్రదేశంపై ఆధారపడుతుంది.
+9. Chatbot పేరు PrithviPal. ఇది API key లేకుండా local FAQ knowledge base ద్వారా సాధారణ వ్యర్థాల ప్రశ్నలకు సమాధానం ఇస్తుంది.
+10. UI లో raw Python error details చూపించకుండా, సులభమైన error message చూపిస్తుంది.
+
+ముఖ్యమైన మోడల్ పరిమితులు:
+- మీ ZIP లో ఉన్న keras_model.h5 ఒక image classifier మాత్రమే. ఇది object detector కాదు. అందుకే ఉచిత pretrained MediaPipe COCO detector జోడించాం.
+- MediaPipe detector COCO dataset లో ఉన్న సాధారణ object classes ను మాత్రమే గుర్తిస్తుంది. ప్రతి రకమైన waste, చిన్న ముక్కలు, తెలియని scrap లేదా ప్రత్యేక packaging ను గుర్తిస్తుందని హామీ లేదు.
+- మీ పాత Keras model ను retrain చేయలేదు; దాని ద్వారా ప్రతి detected crop వర్గీకరణ జరుగుతుంది. కాబట్టి ఇది కొత్తగా waste-specific detector ను train చేసినట్టు కాదు.
+- AI match score అనేది model prediction score మాత్రమే; independently measured accuracy లేదా నిజమైన model efficiency కాదు. నిజమైన accuracy తెలుసుకోవడానికి వేరు labelled test dataset అవసరం.
+- Risk index అనేది category-based illustrative priority scale మాత్రమే; పర్యావరణ నష్టం శాతం కాదు.
+- కొత్త detector model మొదటి సారి image analysis నొక్కినప్పుడు Google నుంచి download అవుతుంది. అందువల్ల మొదటి image analysis కు internet అవసరం. API key లేదా payment అవసరం లేదు.
+- Welcome Screen యాప్‌ను తెరిచిన వెంటనే కనిపిస్తుంది; అయితే Streamlit Cloud యొక్క మొదటి app startup సమయంలో platform తనదైన loading చూపవచ్చు.
+
+GITHUB + STREAMLIT CLOUD లో UPDATE చేయడం:
+=========================================
+1. ZIP ను మీ కంప్యూటర్‌లో Extract చేయండి.
+2. GitHub లో మీ Waste-helper repository తెరవండి.
+3. repository root లో ఉన్న app.py మరియు requirements.txt ఫైళ్లను ఈ ZIP లోని కొత్త ఫైళ్లతో replace చేయండి.
+4. runtime.txt కూడా replace చేయండి.
+5. keras_model.h5 మరియు labels.txt ను తొలగించవద్దు; ఇవి ZIP లో ఉన్న పాత ఫైళ్లే. కావాలంటే అదే files అలాగే ఉంచండి.
+6. GitHub లో Commit changes చేయండి.
+7. Streamlit Community Cloud లో మీ app తెరిచి Manage app → Reboot app (లేదా app restart) ఎంచుకోండి.
+8. App తెరిచినప్పుడు Welcome Screen వస్తుంది. Start button నొక్కిన తర్వాత upload page తెరుచుకుంటుంది.
+9. మొదటి image analysis సమయంలో detector model download అవుతుంది. ఆ దశలో internet connection అవసరం.
+
+వేరుగా Visual Studio Code లేదా local Python environment setup చేయాల్సిన అవసరం లేదు; GitHub లో files replace చేసి Streamlit app restart చేయడమే సరిపోతుంది.
